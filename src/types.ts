@@ -1,0 +1,10 @@
+export type Severity='LOW'|'MEDIUM'|'HIGH'|'CRITICAL';
+export type IStatus='Active'|'Resolved';
+export interface Incident{id:string;time:string;type:string;severity:Severity;location:string;description:string;status:IStatus}
+export interface Contact{id:string;name:string;relation:string;phone:string;priority:number}
+export interface Device{connected:boolean;battery:number;lastHeartbeat:string;lastSensor:string}
+export interface Sensors{motion:number;impact:number;inactivity:number}
+export interface Risk{score:number;level:'LOW'|'MEDIUM'|'HIGH';reasons:string[]}
+export interface Loc{lat:number;lng:number;updated:string}
+export interface EventLog{t:string;msg:string}
+export interface State{incidents:Incident[];contacts:Contact[];device:Device;sensors:Sensors;loc:Loc;trend:number[];events:EventLog[]}
