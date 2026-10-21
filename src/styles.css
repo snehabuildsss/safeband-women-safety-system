@@ -30,3 +30,10 @@ tr.activeRow td:first-child{border-left:3px solid #ff5a5f}tbody tr:hover{backgro
 .bar{height:8px;background:#0e1530;border-radius:9px;overflow:hidden;margin-top:8px}.bar i{display:block;height:100%;background:var(--pu)}.bar i.g{background:var(--g)}.bar i.a{background:var(--a)}.bar i.r{background:var(--r)}
 .map,.chart{width:100%;border-radius:10px}ul{padding-left:18px;margin:0 0 10px}
 @media(max-width:800px){.app{flex-direction:column}.side{width:100%;height:auto;position:static;padding:10px}.nav{display:flex;overflow-x:auto;gap:4px}.nav button{width:auto;white-space:nowrap}.logo{margin-bottom:8px}.content{padding:14px}}
+.sim-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.sim-btn{padding:16px;border-radius:12px;border:1px solid var(--pu);background:#8b5cf61a;color:var(--tx);font:inherit;font-weight:700;cursor:pointer;text-align:left}
+.sim-btn:hover{background:#8b5cf633}.sim-btn.hot{border-color:#ff5a5f;background:#ff5a5f22}
+.chip{display:inline-flex;gap:6px;align-items:center;padding:4px 8px 4px 12px;border-radius:99px;border:1px solid var(--bd);background:#0e1530;margin:0 6px 6px 0}
+.chip button{border:0;background:none;color:var(--tx);cursor:pointer;font:inherit}.chip button+button{color:var(--mu)}
+.gmap{width:100%;height:340px;border:0;border-radius:10px}.err{color:#ff6b6b}
+a.btn{text-decoration:none;display:inline-block}

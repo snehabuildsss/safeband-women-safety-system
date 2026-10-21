@@ -1,7 +1,8 @@
 import {createContext,useContext,useEffect,useState} from 'react';
 import type {ReactNode} from 'react';
-import type {State,Incident,Contact,Risk,Severity} from './types';
-import {assess,SCENARIOS} from './risk';
+import type {State,Incident,Contact,Risk,Severity,Loc} from './types';
+import {assess,SCENARIOS,SCENARIO_LABEL} from './risk';
+import type {ScenarioKey} from './risk';
 
 const KEY='safeband.demo.v1';
 const ago=(h:number)=>new Date(Date.now()-h*3600e3).toISOString();
@@ -32,18 +33,21 @@ function load():State{
   }catch{}
   return seed();
 }
-const push=(p:State,type:string,severity:Severity,description:string):State=>({
-  ...p,
-  incidents:[{id:'INC-'+(1001+p.incidents.length),time:new Date().toISOString(),type,severity,location:locStr(p.loc.lat,p.loc.lng),description,status:'Active'} as Incident,...p.incidents],
-  events:[{t:new Date().toISOString(),msg:`${type}: ${description}`},...p.events].slice(0,25),
-});
+const push=(p:State,type:string,severity:Severity,description:string):State=>{
+  const last=p.incidents[0];
+  if(last&&last.type===type&&last.description===description&&Date.now()-new Date(last.time).getTime()<2000) return p; // blocks double-click duplicates
+  const location=p.loc.source==='browser'?`${p.loc.lat.toFixed(4)}, ${p.loc.lng.toFixed(4)} (browser location)`:locStr(p.loc.lat,p.loc.lng);
+  return {...p,
+    incidents:[{id:'INC-'+(1001+p.incidents.length),time:new Date().toISOString(),type,severity,location,description,status:'Active'} as Incident,...p.incidents],
+    events:[{t:new Date().toISOString(),msg:`${type}: ${description}`},...p.events].slice(0,25)};
+};
 const log=(p:State,msg:string):State=>({...p,events:[{t:new Date().toISOString(),msg},...p.events].slice(0,25)});
 const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 
 interface Ctx{
   s:State;risk:Risk;emergency:boolean;status:string;activeAlerts:number;
   sos():void;resolveIncident(id:string):void;resolveEmergency():void;
-  simulate(k:'normal'|'unusual'|'high'):void;toggleConnection():void;refreshLoc():void;
+  simulate(k:ScenarioKey):void;resetSim():void;voiceEvent(phrase:string,real:boolean):void;setLocation(l:Loc):void;resetLocation():void;toggleConnection():void;refreshLoc():void;
   saveContact(c:Contact):void;deleteContact(id:string):void;resetDemo():void;
 }
 const C=createContext<Ctx>(null as unknown as Ctx);
@@ -58,12 +62,12 @@ export function Provider({children}:{children:ReactNode}){
   const v:Ctx={
     s,risk,emergency,status,activeAlerts:s.incidents.filter(i=>i.status==='Active').length,
     sos:()=>setS(p=>p.incidents.some(i=>i.status==='Active'&&i.type==='SOS Emergency')?p:push(p,'SOS Emergency','CRITICAL','Manual SOS activated (simulated; no real SMS/call sent).')),
-    resolveIncident:id=>setS(p=>log({...p,incidents:p.incidents.map(i=>i.id===id?{...i,status:'Resolved'}:i)},`${id} resolved.`)),
+    resolveIncident:id=>setS(p=>{const t=p.incidents.find(i=>i.id===id);const sensors=t&&t.type.startsWith('Voice Trigger')?{...p.sensors,voice:0}:p.sensors;return log({...p,sensors,incidents:p.incidents.map(i=>i.id===id?{...i,status:'Resolved'}:i)},`${id} resolved.`);}),
     resolveEmergency:()=>setS(p=>log({...p,incidents:p.incidents.map(i=>i.type==='SOS Emergency'&&i.status==='Active'?{...i,status:'Resolved'}:i)},'Emergency resolved.')),
     simulate:k=>setS(p=>{
       const sensors=SCENARIOS[k],r=assess(sensors);
       let n:State={...p,sensors,trend:[...p.trend.slice(-11),r.score],device:{...p.device,lastSensor:new Date().toISOString()}};
-      n=k==='normal'?log(n,'Simulated normal movement: risk LOW.'):push(n,'Threat Detection (Demo)',r.level,`${r.level} risk (${r.score}). ${r.reasons.join(' ')}`);
+      n=k==='normal'||r.level==='LOW'?log(n,'Simulated normal movement: risk LOW.'):push(n,SCENARIO_LABEL[k],r.level,`${r.level} risk (${r.score}/100). ${r.reasons.join(' ')} [DEMO DATA]`);
       return n;}),
     toggleConnection:()=>setS(p=>{
       const connected=!p.device.connected;
@@ -72,6 +76,13 @@ export function Provider({children}:{children:ReactNode}){
     refreshLoc:()=>setS(p=>log({...p,loc:{lat:clamp(p.loc.lat+(Math.random()-.5)*.006,28.59,28.65),lng:clamp(p.loc.lng+(Math.random()-.5)*.006,77.18,77.24),updated:new Date().toISOString()}},'Simulated location update.')),
     saveContact:c=>setS(p=>({...p,contacts:p.contacts.some(x=>x.id===c.id)?p.contacts.map(x=>x.id===c.id?c:x):[...p.contacts,c]})),
     deleteContact:id=>setS(p=>({...p,contacts:p.contacts.filter(c=>c.id!==id)})),
+    resetSim:()=>setS(p=>log({...p,sensors:SCENARIOS.normal},'Simulation reset: sensors back to normal (incidents and contacts untouched).')),
+    voiceEvent:(phrase,real)=>setS(p=>{
+      const sensors={...p.sensors,voice:100},r=assess(sensors);
+      const n:State={...p,sensors,trend:[...p.trend.slice(-11),r.score]};
+      return push(n,real?'Voice Trigger (Browser Speech Recognition)':'Voice Trigger (Simulated)','MEDIUM',`Phrase detected: "${phrase}". ${real?'Heard by browser speech recognition; no audio stored.':'SIMULATED detection; no audio captured. [DEMO DATA]'}`);}),
+    setLocation:l=>setS(p=>({...p,loc:l})),
+    resetLocation:()=>setS(p=>log({...p,loc:{lat:28.6129,lng:77.2295,updated:new Date().toISOString()}},'Switched back to demo location (Delhi).')),
     resetDemo:()=>setS(seed()),
   };
   return <C.Provider value={v}>{children}</C.Provider>;
